@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arda Meanders – DJI Avata 2 Drone Footage</title>
+  <style>
+    :root {
+      --sky-gradient-top: #87ceeb;
+      --sky-gradient-mid: #e0f6ff;
+      --sky-gradient-bot: #f5e6d3;
+      --atm-haze: rgba(230, 230, 230, 0.15);
+      --water-surface: #2b6e8f;
+      --water-deep: #0d3d52;
+      --vegetation-dark: #3d5c2f;
+      --vegetation-light: #5a8c42;
+      --soil-light: #c9b089;
+      --soil-dark: #8b7355;
+      --rock-shadow: #4a4a52;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #0a0e13;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .viewport {
+      position: relative;
+      width: 100%;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background: #1a2332;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 50px 120px rgba(0, 0, 0, 0.7),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 0 60px rgba(0, 0, 0, 0.9);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .info-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    .telemetry {
+      padding: 10px 16px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #a0d8ff;
+      font-family: 'Courier New', monospace;
+      line-height: 1.6;
+    }
+
+    .telemetry strong {
+      color: #5aff88;
+      display: block;
+      font-size: 14px;
+      letter-spacing: 0.1em;
+      margin-bottom: 3px;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #5aff88;
+      margin-right: 8px;
+      box-shadow: 0 0 8px rgba(90, 255, 136, 0.8);
+    }
+
+    .compass {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #a0d8ff;
+      font-weight: bold;
+      letter-spacing: 0.2em;
+      backdrop-filter: blur(8px);
+    }
+
+    .compass::before {
+      content: "N";
+      position: absolute;
+      top: 8px;
+      font-size: 14px;
+      color: #ff6b6b;
+      font-weight: bold;
+    }
+
+    .fps-counter {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 10px;
+      color: #7fff7f;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.1em;
+      backdrop-filter: blur(8px);
+    }
+
+    .control-panel {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    button {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.4);
+      color: #a0d8ff;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: rgba(90, 255, 136, 0.1);
+      border-color: rgba(90, 255, 136, 0.4);
+      color: #5aff88;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80px;
+      height: 80px;
+      pointer-events: none;
+    }
+
+    .crosshair::before,
+    .crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(90, 255, 136, 0.4);
+    }
+
+    .crosshair::before {
+      width: 50%;
+      height: 1px;
+      top: 50%;
+      left: 0;
+    }
+
+    .crosshair::after {
+      width: 1px;
+      height: 50%;
+      left: 50%;
+      top: 0;
+    }
+
+    @media (max-width: 800px) {
+      .info-panel { top: 12px; left: 12px; }
+      .compass { top: 12px; right: 12px; width: 60px; height: 60px; font-size: 10px; }
+      .control-panel { bottom: 12px; }
+      .fps-counter { bottom: 12px; left: 12px; font-size: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewport">
+    <canvas id="droneCanvas"></canvas>
+
+    <div class="info-panel">
+      <div class="telemetry">
+        <strong>DJI AVATA 2</strong>
+        <span class="status-indicator"></span>Recording
+        <br />ALT: 120m | SPD: 15m/s
+        <br />GPS: 41.45°N, 25.18°E
+        <br />Battery: 84%
+      </div>
+    </div>
+
+    <div class="compass"></div>
+    <div class="crosshair"></div>
+
+    <div class="control-panel">
+      <button id="genBtn">Generate Scene</button>
+      <button id="captureBtn">Screenshot</button>
+      <button id="recordBtn">Record</button>
+    </div>
+
+    <div class="fps-counter" id="fpsCounter">FPS: 60</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('droneCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Перлин шум имитация
+    class SimplexNoise {
+      constructor(seed = 0) {
+        this.seed = seed;
+        this.p = [];
+        for (let i = 0; i < 256; i++) this.p[i] = i;
+        for (let i = 255; i > 0; i--) {
+          const j = Math.floor(this._random() * (i + 1));
+          [this.p[i], this.p[j]] = [this.p[j], this.p[i]];
+        }
+        this.p = [...this.p, ...this.p];
+      }
+
+      _random() {
+        this.seed = (this.seed * 9301 + 49297) % 233280;
+        return this.seed / 233280;
+      }
+
+      noise(x, y) {
+        const xi = Math.floor(x) & 255;
+        const yi = Math.floor(y) & 255;
+        const xf = x - Math.floor(x);
+        const yf = y - Math.floor(y);
+        const u = xf * xf * (3 - 2 * xf);
+        const v = yf * yf * (3 - 2 * yf);
+
+        const n00 = this._grad(this.p[xi] + this.p[yi], xf, yf);
+        const n10 = this._grad(this.p[xi + 1] + this.p[yi], xf - 1, yf);
+        const n01 = this._grad(this.p[xi] + this.p[yi + 1], xf, yf - 1);
+        const n11 = this._grad(this.p[xi + 1] + this.p[yi + 1], xf - 1, yf - 1);
+
+        const nx0 = n00 * (1 - u) + n10 * u;
+        const nx1 = n01 * (1 - u) + n11 * u;
+        return nx0 * (1 - v) + nx1 * v;
+      }
+
+      _grad(hash, x, y) {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 8 ? y : x;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+      }
+    }
+
+    // Сцена
+    class DroneScene {
+      constructor(w, h) {
+        this.w = w;
+        this.h = h;
+        this.noise = new SimplexNoise(Math.random() * 10000);
+        this.time = 0;
+        this.atmosphericQuality = 0.85;
+      }
+
+      drawSky(ctx) {
+        const gradient = ctx.createLinearGradient(0, 0, 0, this.h);
+        gradient.addColorStop(0, '#87ceeb');
+        gradient.addColorStop(0.3, '#e0f6ff');
+        gradient.addColorStop(1, '#f5e6d3');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        // Облаци
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        for (let i = 0; i < 8; i++) {
+          const x = (i * this.w / 8 + this.time * 0.3) % this.w;
+          const y = 40 + Math.sin(i * 0.5) * 30;
+          const size = 120 + Math.sin(i * 0.3) * 40;
+          this.drawCloud(ctx, x, y, size);
+        }
+
+        // Атмосферна мъгла
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        for (let y = this.h * 0.6; y < this.h; y += 15) {
+          ctx.fillRect(0, y, this.w, 8);
+          ctx.globalAlpha = 0.5;
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      drawCloud(ctx, x, y, size) {
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.4, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.3, y - size * 0.1, size * 0.5, 0, Math.PI * 2);
+        ctx.arc(x - size * 0.25, y + size * 0.05, size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      drawMountains(ctx) {
+        // Далечни планини
+        ctx.fillStyle = '#9b9b9b';
+        ctx.globalAlpha = 0.4;
+        this.drawMountainRange(ctx, 0, this.h * 0.35, this.w, 80, 6);
+        ctx.globalAlpha = 0.7;
+        this.drawMountainRange(ctx, 0, this.h * 0.4, this.w, 120, 4);
+
+        // Близи планински наклони
+        ctx.fillStyle = '#6b7b5f';
+        ctx.globalAlpha = 0.8;
+        this.drawMountainRange(ctx, 0, this.h * 0.45, this.w, 180, 3);
+
+        ctx.globalAlpha = 1;
+      }
+
+      drawMountainRange(ctx, x, y, w, h, peaks) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        for (let i = 0; i <= w; i += w / (peaks * 2)) {
+          const n = this.noise.noise(i * 0.001, peaks * 0.5) * 0.5 + 0.5;
+          ctx.lineTo(x + i, y - (n * h));
+        }
+        ctx.lineTo(x + w, y);
+        ctx.lineTo(x + w, y + this.h);
+        ctx.lineTo(x, y + this.h);
+        ctx.fill();
+      }
+
+      drawRiver(ctx) {
+        // Река Арда с меандри
+        const centerY = this.h * 0.65;
+        const riverWidth = 120;
+
+        ctx.fillStyle = 'rgba(43, 110, 143, 0.9)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 15;
+
+        ctx.beginPath();
+        ctx.moveTo(0, centerY - riverWidth / 2);
+
+        for (let x = 0; x <= this.w; x += 10) {
+          const t = x / this.w;
+          const meander1 = Math.sin(t * Math.PI * 4) * 80;
+          const meander2 = Math.sin(t * Math.PI * 2 + 1) * 60;
+          const noise = this.noise.noise(t * 5, this.time * 0.01) * 40;
+          const y = centerY + meander1 + meander2 + noise;
+
+          ctx.lineTo(x, y - riverWidth / 2);
+        }
+
+        for (let x = this.w; x >= 0; x -= 10) {
+          const t = x / this.w;
+          const meander1 = Math.sin(t * Math.PI * 4) * 80;
+          const meander2 = Math.sin(t * Math.PI * 2 + 1) * 60;
+          const noise = this.noise.noise(t * 5, this.time * 0.01) * 40;
+          const y = centerY + meander1 + meander2 + noise;
+
+          ctx.lineTo(x, y + riverWidth / 2);
+        }
+
+        ctx.closePath();
+        ctx.fill();
+
+        // Отражение върху вода
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        for (let i = 0; i < 5; i++) {
+          const x = Math.random() * this.w;
+          const y = centerY + (Math.random() - 0.5) * riverWidth;
+          ctx.fillRect(x, y, 50 + Math.random() * 80, 2);
+        }
+
+        ctx.shadowColor = 'transparent';
+      }
+
+      drawVegetation(ctx) {
+        // Тревисти брегове
+        ctx.fillStyle = 'rgba(93, 140, 66, 0.85)';
+        const centerY = this.h * 0.65;
+        const riverWidth = 120;
+
+        for (let side = -1; side <= 1; side += 2) {
+          const offset = side < 0 ? -riverWidth / 2 : riverWidth / 2;
+          ctx.beginPath();
+          ctx.moveTo(0, centerY + offset);
+
+          for (let x = 0; x <= this.w; x += 8) {
+            const t = x / this.w;
+            const ripple = Math.sin(t * Math.PI * 3 + this.time * 0.02) * 15;
+            const noise = this.noise.noise(t * 3, this.time * 0.005) * 20;
+            const y = centerY + offset + ripple + noise + side * 40;
+
+            ctx.lineTo(x, y);
+          }
+
+          ctx.lineTo(this.w, centerY + offset + side * 200);
+          ctx.lineTo(0, centerY + offset + side * 200);
+          ctx.fill();
+        }
+
+        // Храсти и тревна растителност
+        this.drawShrubs(ctx);
+      }
+
+      drawShrubs(ctx) {
+        const centerY = this.h * 0.65;
+        for (let i = 0; i < 30; i++) {
+          const x = (i * this.w / 30 + this.time * 0.1) % this.w;
+          const side = Math.random() > 0.5 ? 1 : -1;
+          const y = centerY + side * (80 + Math.random() * 60);
+          const size = 20 + Math.random() * 30;
+          const opacity = 0.5 + Math.random() * 0.4;
+
+          ctx.fillStyle = `rgba(61, 92, 47, ${opacity})`;
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = `rgba(90, 140, 66, ${opacity * 0.7})`;
+          ctx.beginPath();
+          ctx.arc(x - size * 0.3, y - size * 0.2, size * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      drawSandbars(ctx) {
+        const centerY = this.h * 0.65;
+        const riverWidth = 120;
+
+        ctx.fillStyle = 'rgba(201, 176, 137, 0.7)';
+        for (let i = 0; i < 4; i++) {
+          const x = this.w * (0.2 + i * 0.2);
+          const y = centerY + Math.sin(i * 1.5) * 40;
+          const w = 80 + Math.random() * 60;
+          const h = 30 + Math.random() * 20;
+
+          ctx.beginPath();
+          ctx.ellipse(x, y, w, h, Math.random() * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      drawTerrainDetail(ctx) {
+        // Микротекстури на земята
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+        for (let y = this.h * 0.5; y < this.h; y += 20) {
+          for (let x = 0; x < this.w; x += 30) {
+            if (Math.random() > 0.5) {
+              ctx.fillRect(x + Math.random() * 20, y + Math.random() * 15, 10, 8);
+            }
+          }
+        }
+      }
+
+      drawDepthHaze(ctx) {
+        // Атмосферна перспектива
+        const gradient = ctx.createLinearGradient(0, this.h * 0.3, 0, this.h);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        gradient.addColorStop(0.5, 'rgba(200, 210, 220, 0.04)');
+        gradient.addColorStop(1, 'rgba(180, 190, 200, 0.08)');
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, this.h * 0.3, this.w, this.h * 0.7);
+      }
+
+      draw(ctx) {
+        // Основен фон
+        ctx.fillStyle = '#a8d5ff';
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        // Слои
+        this.drawSky(ctx);
+        this.drawMountains(ctx);
+        this.drawVegetation(ctx);
+        this.drawSandbars(ctx);
+        this.drawRiver(ctx);
+        this.drawTerrainDetail(ctx);
+        this.drawDepthHaze(ctx);
+
+        this.time += 0.016;
+      }
+    }
+
+    // Главен loop
+    let scene = new DroneScene(canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+    let lastTime = Date.now();
+    let frameCount = 0;
+
+    function animate() {
+      scene.draw(ctx);
+
+      // FPS счетач
+      frameCount++;
+      const now = Date.now();
+      if (now - lastTime >= 1000) {
+        document.getElementById('fpsCounter').textContent = `FPS: ${frameCount}`;
+        frameCount = 0;
+        lastTime = now;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    // Бутони
+    document.getElementById('genBtn').addEventListener('click', () => {
+      scene = new DroneScene(canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+    });
+
+    document.getElementById('captureBtn').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `arda-drone-${Date.now()}.png`;
+      link.click();
+    });
+
+    document.getElementById('recordBtn').addEventListener('click', (e) => {
+      e.target.textContent = e.target.textContent === 'Record' ? 'Recording...' : 'Record';
+    });
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      scene = new DroneScene(canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+    });
+  </script>
+</body>
+</html>
